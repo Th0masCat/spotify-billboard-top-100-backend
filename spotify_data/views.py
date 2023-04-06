@@ -15,7 +15,7 @@ from requests import Request, post
 
 SPOTIFY_AUTH_ENDPOINT = "https://accounts.spotify.com/authorize"
 CLIENT_ID = "4be9b45f83eb4c57bdf6cf341033711d"
-REDIRECT_URI = "http://127.0.0.1:8000/spot/"
+REDIRECT_URI = "https://web-production-535b.up.railway.app/spot/"
 SCOPES = ["playlist-read-private user-read-private user-read-email user-library-read playlist-modify-public playlist-modify-private"]
 SCOPES_URL_PARAM = "%20".join(SCOPES)
 RESPONSE_TYPE = "code"
