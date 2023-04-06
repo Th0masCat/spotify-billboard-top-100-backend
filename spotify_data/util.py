@@ -3,8 +3,6 @@ from django.utils import timezone
 from datetime import timedelta
 from requests import post
 
-CLIENT_ID = "4be9b45f83eb4c57bdf6cf341033711d"
-CLIENT_SECRET = "de20e5ada839492eacc35ae7a18b02fb"
 
 def get_user_tokens(session_id):
     user_tokens = SpotifyData.objects.filter(user=session_id)

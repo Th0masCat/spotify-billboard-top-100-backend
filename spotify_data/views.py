@@ -70,7 +70,7 @@ def spotify_callback(request):
     
     update_or_create_user_tokens(request.session.session_key, access_token, token_type, expires_in, refresh_token)
     
-    return redirect('http://localhost:5173/date')
+    return redirect('https://spotify-billboard-top-100-git-master-th0mascat.vercel.app/date')
 
 
 class Playlist(APIView):
