@@ -2,9 +2,16 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import HttpResponseRedirect, JsonResponse
+from django.shortcuts import redirect
 import requests
 import json
+import aiohttp
 from bs4 import BeautifulSoup
+from .models import SpotifyData
+
+from .util import update_or_create_user_tokens, get_user_tokens
+
+from requests import Request, post
 
 SPOTIFY_AUTH_ENDPOINT = "https://accounts.spotify.com/authorize"
 CLIENT_ID = "4be9b45f83eb4c57bdf6cf341033711d"
@@ -17,34 +24,63 @@ RESPONSE_TYPE = "code"
 
 res = []
 
-class SpotifyAuth(APIView):
+class Auth(APIView):
     def get(self, request):
-        return HttpResponseRedirect(f"{SPOTIFY_AUTH_ENDPOINT}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={SCOPES_URL_PARAM}&response_type={RESPONSE_TYPE}")
-
-class Data(APIView):
-    def get(self, request):
-        res.append(request.GET)
-        code = res[len(res)-1]['code']
+        url = Request(
+            'GET',
+            SPOTIFY_AUTH_ENDPOINT,
+            params= 
+            {
+                'scope': SCOPES_URL_PARAM,
+                'response_type': RESPONSE_TYPE,
+                'redirect_uri': REDIRECT_URI,
+                'client_id': CLIENT_ID
+            }
+        ).prepare().url
         
-        print(code)
-        req = requests.post("https://accounts.spotify.com/api/token", 
-        data={ 
-            
+        return Response({'url': url}, status=200)
+        
+        
+def spotify_callback(request):
+    code = request.GET.get('code')
+    error = request.GET.get('error')
+    
+    response = post("https://accounts.spotify.com/api/token"
+        ,
+        data=
+        {
             "code": code, 
             "redirect_uri": REDIRECT_URI, 
             "grant_type": "authorization_code", 
         }, headers={
             "Authorization": "Basic NGJlOWI0NWY4M2ViNGM1N2JkZjZjZjM0MTAzMzcxMWQ6ZGUyMGU1YWRhODM5NDkyZWFjYzM1YWU3YTE4YjAyZmI=",
             "Content-Type": "application/x-www-form-urlencoded"
-        })
+        }   
         
-        print(req.text)
+        ).json()
     
+    access_token = response.get('access_token')
+    token_type = response.get('token_type')
+    refresh_token = response.get('refresh_token')
+    expires_in = response.get('expires_in')
+    error = response.get('error')
+    
+    if not request.session.exists(request.session.session_key):
+        request.session.create()
+    
+    update_or_create_user_tokens(request.session.session_key, access_token, token_type, expires_in, refresh_token)
+    
+    return redirect('http://localhost:5173/date')
+
+
+class Playlist(APIView):
+    def get(self, request):
+        access_token = SpotifyData.objects.all().values('access_token')[0].get('access_token')
+        print(access_token)
         USER_ID_ENDPOINT = "https://api.spotify.com/v1/me"
         
-        
         spotify_userID = requests.get(USER_ID_ENDPOINT, headers={
-            "Authorization": "Bearer " + req.json()['access_token']
+            "Authorization": "Bearer " + access_token
         }
         ).json().get('id')
             
@@ -52,7 +88,7 @@ class Data(APIView):
         spotify_create_playlist = f'https://api.spotify.com/v1/users/{spotify_userID}/playlists'
 
         print("Billboard Top 100")
-        date = "2010-10-02"
+        date = request.GET.get('date')
 
         data_create_playlist = json.dumps({
         "name": date,
@@ -61,12 +97,10 @@ class Data(APIView):
         })
 
         headers = {
-            'Authorization': 'Bearer ' + req.json()['access_token'],
+            'Authorization': 'Bearer ' + access_token,
             'Content-Type': 'application/json',
             "Accept": "application/json"
         }
-
-
 
         response_create_playlist = requests.post(spotify_create_playlist, data=data_create_playlist, headers=headers)
         print(response_create_playlist.text)
@@ -87,12 +121,13 @@ class Data(APIView):
         artist_list = [data_list[i] for i in range(1,len(data_list), 2)]
 
 
-        for i in range(len(song_list)):
+        for i in range(20):
             track_params = {
                 'q': song_list[i] + " " + artist_list[i],
                 'type': 'track,artist'
             }
 
+            
             search_response = requests.get(spotify_search_endpoint, params=track_params, headers=headers)
             search_response_json = search_response.json().get('tracks').get('items')[0].get('uri')
             print(search_response_json)
@@ -104,10 +139,8 @@ class Data(APIView):
 
             response = requests.post(spotify_endpoint, headers=headers, params=spotify_params)
             print(response.text)
-            
-        
-        print(len(res))
-        return JsonResponse(req.json())
-    
+
+        return JsonResponse({'success': True}, status=200)
+
 
         
