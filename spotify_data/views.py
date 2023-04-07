@@ -26,6 +26,7 @@ res = []
 
 class Auth(APIView):
     def get(self, request):
+        SpotifyData.objects.all().delete()
         url = Request(
             'GET',
             SPOTIFY_AUTH_ENDPOINT,
